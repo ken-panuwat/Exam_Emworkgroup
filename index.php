@@ -16,7 +16,7 @@ if (isset($_POST['search_month'])) {
 }
 
 // Query to fetch transactions
-$sql = "SELECT * FROM transactions WHERE MONTH(spending_date) = :month";
+$sql = "SELECT * FROM transactions" . ($searchMonth ? " WHERE MONTH(spending_date) = :month" : "");
 $stmt = $condb->prepare($sql);
 $stmt->bindParam(':month', $searchMonth);
 $stmt->execute();
@@ -52,11 +52,21 @@ $months = [];
 $incomeData = [];
 $expenseData = [];
 
+
+
+$thaiMonths = [
+  1 => 'มกราคม', 2 => 'กุมภาพันธ์', 3 => 'มีนาคม', 4 => 'เมษายน',
+  5 => 'พฤษภาคม', 6 => 'มิถุนายน', 7 => 'กรกฎาคม', 8 => 'สิงหาคม',
+  9 => 'กันยายน', 10 => 'ตุลาคม', 11 => 'พฤศจิกายน', 12 => 'ธันวาคม'
+];
+
 foreach ($graphData as $data) {
-    $months[] = $thaiMonthMap[array_search($data['month'], $thaiMonthMap)];
-    $incomeData[] = $data['total_income'];
-    $expenseData[] = $data['total_expense'];
+  $months[] = $thaiMonths[$data['month']];
+   
+  $incomeData[] = $data['total_income'];
+  $expenseData[] = $data['total_expense'];
 }
+
 
 ?>
 
@@ -88,6 +98,7 @@ foreach ($graphData as $data) {
         width: 450px;
         padding: 20px;
         margin-right: 20px;
+        margin-left: 20px;
         margin-bottom: 20px;
     }
 
@@ -202,12 +213,13 @@ foreach ($graphData as $data) {
 </head>
 
 <body>
+    <!-- บันทึกรายการ รายรับ/รายจ่าย -->
     <div class="card">
         <div class="card-header">
             <h3>บันทึกรายการ รายรับ/รายจ่าย</h3>
         </div>
         <div class="card-body">
-            <form action="save_transaction.php" method="POST">
+            <form id="transactionForm" method="POST">
                 <div class="form-group">
                     <label for="type">ประเภท</label>
                     <select id="type" name="type" class="form-control" required>
@@ -236,15 +248,15 @@ foreach ($graphData as $data) {
         </div>
     </div>
 
-
+    <!-- แสดงผลข้อมูลรายการ รายรับ/รายจ่าย-->
     <div class="card" style="width: 1000px; margin-right: auto;">
         <div class="card-header">
             <h3>แสดงผลข้อมูลรายการ รายรับ/รายจ่าย</h3>
         </div>
         <div class="card-body">
             <form method="POST">
-                <label for="search_month">ค้นหาจากเดือน </label>
-                <input type="text" id="search_month" name="search_month" required>
+                <label for="search_month">ค้นหา</label>
+                <input type="text" id="search_month" name="search_month" placeholder="ระบุเดือน" required>
                 <button type="submit" class="btn btn-primary">ค้นหา</button>
                 <button type="button" class="btn btn-secondary" style="background-color: red; color: white;"
                     onclick="clearForm()">clear</button>
@@ -253,13 +265,13 @@ foreach ($graphData as $data) {
             <table>
                 <thead>
                     <tr>
-                        <th>ลำดับ</th>
-                        <th>ประเภท</th>
-                        <th>ชื่อรายการ</th>
-                        <th>จำนวนเงิน</th>
-                        <th>วันที่ใช้จ่าย</th>
-                        <th>แก้ไข</th>
-                        <th>ลบ</th>
+                        <th style="text-align: center;">ลำดับ</th>
+                        <th style="text-align: center;">ประเภท</th>
+                        <th style="text-align: center;">ชื่อรายการ</th>
+                        <th style="text-align: center;">จำนวนเงิน</th>
+                        <th style="text-align: center;">วันที่ใช้จ่าย</th>
+                        <th style="text-align: center;">แก้ไข</th>
+                        <th style="text-align: center;">ลบ</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -271,27 +283,23 @@ foreach ($graphData as $data) {
                         <td><?php echo $transaction['item_name']; ?></td>
                         <td><?php echo number_format($transaction['amount'], 2); ?></td>
                         <td><?php echo formatThaiDate($transaction['spending_date']); ?></td>
-                        <td>
+                        <td style="text-align: center;">
                             <button class="icon-button"
                                 onclick="openEditModal(<?php echo htmlspecialchars(json_encode($transaction)); ?>)">
                                 <i class="fas fa-edit"></i>
                             </button>
                         </td>
-                        <td>
-                            <form method="POST" action="delete_transaction.php" style="display:inline;">
-                                <input type="hidden" name="transaction_id"
-                                    value="<?php echo $transaction['transaction_id']; ?>">
-                                <button class="icon-button" type="submit"
-                                    onclick="return confirm('คุณแน่ใจว่าจะลบรายการนี้?')">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
-                            </form>
+                        <td style="text-align: center;">
+                            <button class="icon-button"
+                                onclick="deleteTransaction(<?php echo $transaction['transaction_id']; ?>)">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
                         </td>
                     </tr>
                     <?php endforeach; ?>
                     <?php else: ?>
                     <tr>
-                        <td colspan="7">ไม่มีรายการ</td>
+                        <td colspan="7" style="text-align: center;">ไม่มีรายการ</td>
                     </tr>
                     <?php endif; ?>
                 </tbody>
@@ -301,10 +309,11 @@ foreach ($graphData as $data) {
 
     <!-- Edit Modal -->
     <div id="editModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="width: 400px; margin: auto;">
             <span class="close" onclick="closeEditModal()">&times;</span>
             <h2>แก้ไขรายการ</h2>
-            <form id="editForm" method="POST" action="edit_transaction.php">
+            <form id="editForm" onsubmit="return updateTransaction(event);">
+                <!-- Update event handler -->
                 <input type="hidden" id="edit_transaction_id" name="transaction_id">
                 <div class="form-group">
                     <label for="edit_type">ประเภท</label>
@@ -326,14 +335,18 @@ foreach ($graphData as $data) {
                     <input type="date" id="edit_spending_date" name="edit_spending_date" class="form-control" required>
                 </div>
                 <button type="submit" class="btn btn-primary">บันทึกการแก้ไข</button>
+                <button type="button" class="btn btn-secondary" onclick="closeEditModal()"
+                    style="margin-left: 10px;">ยกเลิก</button> <!-- Cancel button -->
             </form>
         </div>
     </div>
 
+
     <div class="container">
         <div class="row">
-            <div class="col-md-6">
-                <div class="card" style="margin-right: auto;">
+            <div class="col-md-6 offset-md-1">
+                <!-- Add offset to create space on the left -->
+                <div class="card">
                     <div class="card-header">
                         <h3>รายงานสรุปรายรับ-รายจ่ายรายเดือน</h3>
                     </div>
@@ -379,7 +392,8 @@ foreach ($graphData as $data) {
                 </div>
             </div>
 
-            <div class="col-md-6">
+            <div class="col-md-5">
+                <!-- Change column size to 5 to fit the layout -->
                 <div class="card">
                     <div class="card-header">
                         <h3>กราฟแสดงรายรับ-รายจ่ายรายเดือน</h3>
@@ -391,10 +405,62 @@ foreach ($graphData as $data) {
             </div>
         </div>
     </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sweetalert/1.1.3/sweetalert.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sweetalert/1.1.3/sweetalert.min.js"></script>
     <script>
+    $(document).ready(function() {
+        $('#transactionForm').on('submit', function(e) {
+            e.preventDefault(); // Prevent the default form submission
+
+            $.ajax({
+                url: 'save_transaction.php',
+                type: 'POST',
+                data: $(this).serialize(), // Serialize the form data
+                dataType: 'json', // Expecting JSON response
+                success: function(response) {
+                    // Clear the form fields
+                    $('#transactionForm')[0].reset();
+
+                    if (response.success) {
+                        swal({
+                            title: 'สำเร็จ!',
+                            text: 'บันทึกรายการสำเร็จ!',
+                            icon: 'success',
+                            button: 'ตกลง'
+                        }).then(function() {
+                            window.location.href = 'index.php'; // Redirect to index
+                        });
+                    } else {
+                        swal({
+                            title: 'เกิดข้อผิดพลาด!',
+                            text: 'ไม่สามารถบันทึกรายการได้!',
+                            icon: 'error',
+                            button: 'ตกลง'
+                        }).then(function() {
+                            window.location.href = 'index.php'; // Redirect to index
+                        });
+                    }
+                },
+                error: function() {
+                    // Clear the form fields
+                    $('#transactionForm')[0].reset();
+
+                    swal({
+                        title: 'เกิดข้อผิดพลาด!',
+                        text: 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้!',
+                        icon: 'error',
+                        button: 'ตกลง'
+                    });
+                }
+            });
+        });
+    });
+
+
     function openEditModal(transaction) {
         document.getElementById('edit_transaction_id').value = transaction.transaction_id;
         document.getElementById('edit_type').value = transaction.type;
@@ -420,7 +486,7 @@ foreach ($graphData as $data) {
     const incomeExpenseChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: <?php echo json_encode(($months)); ?>,
+            labels: <?php echo json_encode($months); ?>,
             datasets: [{
                     label: 'รายรับ',
                     data: <?php echo json_encode($incomeData); ?>,
@@ -455,6 +521,84 @@ foreach ($graphData as $data) {
             },
         }
     });
+
+    function updateTransaction(event) {
+        event.preventDefault(); // Prevent default form submission
+
+        const formData = new FormData(document.getElementById('editForm')); // Get form data
+
+        fetch('edit_transaction.php', { // Send to the PHP file for processing
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json()) // Expect JSON response
+            .then(data => {
+                if (data.success) {
+                    swal({
+                        title: 'สำเร็จ!',
+                        text: 'อัปเดตรายการเรียบร้อยแล้ว!',
+                        icon: 'success',
+                        button: 'ตกลง'
+                    }).then(() => {
+                        location.reload(); // Reload the page to show updated data
+                    });
+                } else {
+                    swal({
+                        title: 'ผิดพลาด!',
+                        text: data.message,
+                        icon: 'error',
+                        button: 'ตกลง'
+                    });
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    function deleteTransaction(transactionId) {
+        // Confirm deletion
+        if (confirm('คุณแน่ใจว่าจะลบรายการนี้?')) {
+            const formData = new FormData();
+            formData.append('id', transactionId); // Append the ID
+
+            fetch('delete_transaction.php', {
+                    method: 'POST',
+                    body: formData // Send the form data
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data); // Log the response data for debugging
+
+                    // Check if deletion was successful
+                    if (data.success) {
+                        swal({
+                            title: 'สำเร็จ!',
+                            text: 'ลบรายการเรียบร้อยแล้ว!',
+                            icon: 'success',
+                            button: 'ตกลง'
+                        }).then(function() {
+                            window.location.href = 'index.php'; // Redirect to index page
+                        });
+                    } else {
+                        swal({
+                            title: 'เกิดข้อผิดพลาด!',
+                            text: data.error ||
+                            'ไม่สามารถลบรายการได้!', // Use the error message if available
+                            icon: 'error',
+                            button: 'ตกลง'
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    swal({
+                        title: 'เกิดข้อผิดพลาด!',
+                        text: 'ไม่สามารถลบรายการได้!',
+                        icon: 'error',
+                        button: 'ตกลง'
+                    });
+                });
+        }
+    }
     </script>
 </body>
 

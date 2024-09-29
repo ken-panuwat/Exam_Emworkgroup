@@ -1,37 +1,28 @@
 <?php
 require_once 'config/connect.php';
 
-if (isset($_GET['id'])) {
-    $transactionId = $_GET['id'];
+header('Content-Type: application/json');
+
+// Initialize response array
+$response = [];
+
+// Check if the transaction ID is provided in the POST data
+if (isset($_POST['id'])) {
+    $transactionId = $_POST['id']; // Get the transaction ID from POST data
 
     // Delete the transaction
     $sql = "DELETE FROM transactions WHERE transaction_id = :id";
     $stmt = $condb->prepare($sql);
     $stmt->bindParam(':id', $transactionId);
 
-    echo "<script src=\"https://cdnjs.cloudflare.com/ajax/libs/sweetalert/1.1.3/sweetalert.min.js\"></script>";
     if ($stmt->execute()) {
-        echo "<script>
-                swal({
-                    title: 'สำเร็จ!',
-                    text: 'ลบรายการเรียบร้อยแล้ว!',
-                    icon: 'success',
-                    button: 'ตกลง'
-                }).then(function() {
-                    window.location.href = 'index.php'; // เปลี่ยนไปที่หน้า index
-                });
-              </script>";
+        $response['success'] = true; // Set success to true if deletion is successful
     } else {
-        echo "<script>
-                swal({
-                    title: 'เกิดข้อผิดพลาด!',
-                    text: 'ไม่สามารถลบรายการได้!',
-                    icon: 'error',
-                    button: 'ตกลง'
-                }).then(function() {
-                    window.location.href = 'index.php'; // เปลี่ยนไปที่หน้า index
-                });
-              </script>";
+        $response['error'] = 'Failed to execute statement'; // Optional: add a specific error message
     }
+} else {
+    $response['error'] = 'Transaction ID not provided'; // Optional: error if ID is not set
 }
+
+echo json_encode($response);
 ?>

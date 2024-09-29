@@ -1,6 +1,8 @@
 <?php 
 require_once 'config/connect.php';
 
+$response = array(); // Initialize response array
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     // Retrieve POST data
     $transactionId = $_POST['transaction_id'];
@@ -28,42 +30,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $stmt->bindParam(':updated_at', $updatedAt);
     $stmt->bindParam(':transaction_id', $transactionId);
 
-    echo "<script src=\"https://cdnjs.cloudflare.com/ajax/libs/sweetalert/1.1.3/sweetalert.min.js\"></script>";
-    // Execute the update and handle success or failure
+    // Execute the update and prepare response
     if ($stmt->execute()) {
-        // Redirect to index.php on success using SweetAlert
-        echo "<script>
-                swal({
-                    title: 'สำเร็จ!',
-                    text: 'อัปเดตรายการเรียบร้อยแล้ว!',
-                    icon: 'success',
-                    button: 'ตกลง'
-                }).then(function() {
-                    window.location.href = 'index.php'; // Redirect to index.php
-                });
-            </script>";
+        $response['success'] = true; // Update successful
     } else {
-        // Go back to the previous page on failure using SweetAlert
-        echo "<script>
-                swal({
-                    title: 'ผิดพลาด!',
-                    text: 'ไม่สามารถอัปเดตได้!',
-                    icon: 'error',
-                    button: 'ตกลง'
-                }).then(function() {
-                    window.history.back(); // Go back to the previous page
-                });
-            </script>";
+        $response['success'] = false; // Update failed
+        $response['message'] = 'ไม่สามารถอัปเดตได้!'; // Error message
     }
-    }
-
-// Fetching transaction details for the edit form, if needed
-if (isset($_GET['id'])) {
-    $transactionId = $_GET['id'];
-    $sql = "SELECT * FROM transactions WHERE transaction_id = :id";
-    $stmt = $condb->prepare($sql);
-    $stmt->bindParam(':id', $transactionId);
-    $stmt->execute();
-    $transaction = $stmt->fetch(PDO::FETCH_ASSOC);
+} else {
+    $response['success'] = false; // Not a POST request
+    $response['message'] = 'ผิดพลาดในการรับข้อมูล!';
 }
+
+// Return JSON response
+header('Content-Type: application/json');
+echo json_encode($response);
 ?>

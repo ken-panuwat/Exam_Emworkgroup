@@ -19,33 +19,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->bindParam(':amount', $amount);
     $stmt->bindParam(':spending_date', $spending_date);
 
-    // Execute query
+    // Execute query and prepare response
+    $response = [];
     if ($stmt->execute()) {
-        // Show success pop-up
-        echo "<script src=\"https://cdnjs.cloudflare.com/ajax/libs/sweetalert/1.1.3/sweetalert.min.js\"></script>";
-        echo "<script>
-                swal({
-                    title: 'สำเร็จ!',
-                    text: 'บันทึกรายการสำเร็จ!',
-                    icon: 'success',
-                    button: 'ตกลง'
-                }).then(function() {
-                    window.location.href = 'index.php'; // Redirect to index
-                });
-            </script>";
+        // Success
+        $response['success'] = true;
     } else {
-        // Show error pop-up
-        echo "<script src=\"https://cdnjs.cloudflare.com/ajax/libs/sweetalert/1.1.3/sweetalert.min.js\"></script>";
-        echo "<script>
-                swal({
-                    title: 'เกิดข้อผิดพลาด!',
-                    text: 'ไม่สามารถบันทึกรายการได้!',
-                    icon: 'error',
-                    button: 'ตกลง'
-                }).then(function() {
-                    window.location.href = 'index.php'; // Redirect to index
-                });
-            </script>";
+        // Error
+        $response['success'] = false;
     }
+
+    // Return JSON response
+    header('Content-Type: application/json');
+    echo json_encode($response);
 }
 ?>
